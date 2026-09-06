@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍿</text></svg>">
+    <title>iMovieStream</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        body { background: #0a0a0a; color: white; padding: 16px 0 40px; min-height: 100vh; -webkit-tap-highlight-color: transparent; }
+        .container { max-width: 600px; margin: 0 auto; padding: 0 16px; }
+        /* Cabeçalho */
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .header h1 { font-size: 32px; font-weight: 700; letter-spacing: -0.5px; }
+        .header .badge { font-size: 16px; font-weight: 600; color: #8e8e93; background: #1c1c1e; padding: 6px 14px; border-radius: 20px; }
+        /* Banner */
+        .banner { position: relative; border-radius: 16px; overflow: hidden; margin-bottom: 28px; height: 220px; background: #1c1c1e; }
+        .banner img { width: 100%; height: 100%; object-fit: cover; }
+        .banner .gradient { position: absolute; bottom: 0; left: 0; right: 0; height: 60%; background: linear-gradient(to top, #0a0a0a, transparent); }
+        .banner .info { position: absolute; bottom: 16px; left: 16px; right: 16px; }
+        .banner .info h2 { font-size: 22px; font-weight: 700; text-shadow: 0 2px 8px rgba(0,0,0,0.8); }
+        .banner .info .meta { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #ccc; margin-top: 4px; }
+        .banner .info .meta .star { color: #ffcc00; }
+        .banner .info .meta .type { color: #0a84ff; font-weight: 600; }
+        /* Título da secção */
+        .section-title { display: flex; justify-content: space-between; align-items: center; margin: 24px 0 12px; }
+        .section-title h3 { font-size: 20px; font-weight: 700; }
+        .section-title a { color: #0a84ff; font-size: 14px; text-decoration: none; }
+        /* Lista horizontal */
+        .horizontal-scroll { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+        .horizontal-scroll::-webkit-scrollbar { display: none; }
+        .card { flex: 0 0 140px; }
+        .card .poster { width: 140px; height: 190px; border-radius: 12px; object-fit: cover; background: #1c1c1e; }
+        .card .card-info { margin-top: 6px; }
+        .card .card-info .season { font-size: 10px; font-weight: 700; color: #0a84ff; letter-spacing: 0.5px; }
+        .card .card-info .title { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .card .card-info .year { font-size: 11px; color: #8e8e93; }
+        .card .card-info .rating { display: inline-block; background: #2c2c2e; padding: 0 8px; border-radius: 4px; font-size: 11px; color: #ffcc00; margin-left: 6px; }
+        /* Loading */
+        .loader { display: flex; justify-content: center; padding: 40px 0; color: #8e8e93; }
+        /* Mensagem de erro */
+        .error { background: #1c1c1e; padding: 20px; border-radius: 12px; color: #ff453a; text-align: center; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="container" id="app">
+        <!-- Cabeçalho -->
+        <div class="header">
+            <h1>Série</h1>
+            <span class="badge">FILMES</span>
+        </div>
+
+        <!-- Banner -->
+        <div id="banner" class="banner">
+            <div class="gradient"></div>
+            <div class="info">
+                <h2 id="banner-title">Carregando...</h2>
+                <div class="meta">
+                    <span class="star">★</span> <span id="banner-rating">-</span>
+                    <span>•</span> <span id="banner-year">----</span>
+                    <span>•</span> <span class="type" id="banner-type">FILME</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Título Novidades -->
+        <div class="section-title">
+            <h3>Novidades Mais Populares</h3>
+            <a href="#">Ver tudo</a>
+        </div>
+
+        <!-- Lista horizontal -->
+        <div id="popular-list" class="horizontal-scroll"></div>
+
+        <!-- Loading / Error -->
+        <div id="loader" class="loader">🔃 A carregar filmes e séries...</div>
+        <div id="error" class="error" style="display:none;"></div>
+    </div>
+
+    <script>
+        (function() {
+            const API_KEY = '6d531b73001df43eed9ee25df5e4d3af';
+            const BASE_IMAGE = 'https://image.tmdb.org/t/p/w500';
+            const BANNER = document.getElementById('banner');
+            const BANNER_TITLE = document.getElementById('banner-title');
+            const BANNER_RATING = document.getElementById('banner-rating');
+            const BANNER_YEAR = document.getElementById('banner-year');
+            const BANNER_TYPE = document.getElementById('banner-type');
+            const POPULAR_LIST = document.getElementById('popular-list');
+            const LOADER = document.getElementById('loader');
+            const ERROR = document.getElementById('error');
+
+            function showError(msg) {
+                ERROR.style.display = 'block';
+                ERROR.textContent = '⚠️ ' + msg;
+                LOADER.style.display = 'none';
+            }
+
+            function fetchJSON(url) {
+                return fetch(url)
+                    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+            }
+
+            async function loadData() {
+                try {
+                    const [movies, tv] = await Promise.all([
+                        fetchJSON(`https://api.themoviedb.org/3/movie/now_playing?api_key=${API_KEY}&language=pt-BR&page=1`),
+                        fetchJSON(`https://api.themoviedb.org/3/tv/popular?api_key=${API_KEY}&language=pt-BR&page=1`)
+                    ]);
+
+                    const movieList = movies.results || [];
+                    const tvList = tv.results || [];
+                    const all = [...movieList.map(m => ({ ...m, media_type: 'movie' })), ...tvList.map(t => ({ ...t, media_type: 'tv' }))];
+
+                    if (all.length === 0) {
+                        showError('Nenhum resultado encontrado.');
+                        return;
+                    }
+
+                    // Ordena por popularidade (nota) para o banner e lista
+                    const sorted = all.sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
+
+                    // Banner = o primeiro (mais votado)
+                    const featured = sorted[0];
+                    const poster = featured.poster_path ? BASE_IMAGE + featured.poster_path : '';
+                    BANNER.innerHTML = `
+                        <img src="${poster}" alt="${featured.title || featured.name}">
+                        <div class="gradient"></div>
+                        <div class="info">
+                            <h2>${(featured.title || featured.name).toUpperCase()}</h2>
+                            <div class="meta">
+                                <span class="star">★</span> <span>${featured.vote_average ? featured.vote_average.toFixed(1) : '-'}</span>
+                                <span>•</span> <span>${(featured.release_date || featured.first_air_date || '').slice(0,4) || '----'}</span>
+                                <span>•</span> <span class="type">${featured.media_type === 'movie' ? 'FILME' : 'SÉRIE'}</span>
+                            </div>
+                        </div>
+                    `;
+
+                    // Populares: os 10 primeiros (excluindo o banner? vou mostrar os 10 primeiros)
+                    const popular = sorted.slice(0, 10);
+                    POPULAR_LIST.innerHTML = popular.map(item => {
+                        const title = item.title || item.name || 'Título';
+                        const posterUrl = item.poster_path ? BASE_IMAGE + item.poster_path : '';
+                        const year = (item.release_date || item.first_air_date || '').slice(0,4) || '----';
+                        const rating = item.vote_average ? item.vote_average.toFixed(1) : '-';
+                        const season = item.media_type === 'tv' ? 'SEASON ONE' : 'FILME';
+                        return `
+                            <div class="card">
+                                <img class="poster" src="${posterUrl}" alt="${title}" loading="lazy">
+                                <div class="card-info">
+                                    <div class="season">${season}</div>
+                                    <div class="title">${title}</div>
+                                    <div class="year">Atualizado para ${year} <span class="rating">${rating}</span></div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+
+                    // Esconde loader
+                    LOADER.style.display = 'none';
+
+                } catch (e) {
+                    showError('Falha ao carregar dados: ' + e.message);
+                }
+            }
+
+            loadData();
+        })();
+    </script>
+</body>
+</html>
