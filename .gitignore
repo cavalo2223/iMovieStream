@@ -1,0 +1,7 @@
+.DS_Store
+*.xcodeproj/
+*.xcworkspace/
+Podfile.lock
+Pods/
+DerivedData/
+*.swiftpm/
