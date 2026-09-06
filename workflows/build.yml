@@ -1,0 +1,30 @@
+name: Build iOS App
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Xcode
+        run: sudo xcode-select -switch /Applications/Xcode_15.2.app
+
+      - name: Build and archive
+        run: |
+          xcodebuild -project iMovieStream.xcodeproj -scheme iMovieStream -configuration Release -sdk iphoneos archive -archivePath build/iMovieStream.xcarchive
+
+      - name: Export IPA
+        run: |
+          xcodebuild -exportArchive -archivePath build/iMovieStream.xcarchive -exportPath build -exportOptionsPlist ExportOptions.plist
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: iMovieStream.ipa
+          path: build/iMovieStream.ipa
